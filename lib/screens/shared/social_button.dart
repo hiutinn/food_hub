@@ -20,7 +20,7 @@ class SocialButton extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 14.sp, horizontal: 14.sp),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(28.0))),
-        onPressed: () {},
+        onPressed: onPress,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [

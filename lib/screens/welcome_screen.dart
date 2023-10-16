@@ -1,16 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:food_hub/constants/color.dart';
-import 'package:food_hub/screens/shared/social_button.dart';
+import 'package:food_hub/main.dart';
+import 'package:food_hub/providers/auth/auth_provider.dart';
+import 'package:food_hub/screens/log_in_screen.dart';
 import 'package:food_hub/screens/shared/text_divider.dart';
 import 'package:food_hub/screens/sign_up_screen.dart';
 
-class WelcomeScreen extends StatelessWidget {
+import 'home_screen.dart';
+import 'shared/social_button_row.dart';
+
+class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(authNotifierProvider, (previous, next) {
+      next.maybeWhen(
+        orElse: () => null,
+        authenticated: (user) {
+          ref.read(loadingProvider.notifier).update((state) => false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User Logged In From Welcome'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (context) => const HomeScreen(),
+              ),
+              (route) => false);
+        },
+        unauthenticated: (message) {
+          ref.read(loadingProvider.notifier).update((state) => false);
+          ref
+              .read(loginGeneralErrorProvider.notifier)
+              .update((state) => message);
+        },
+        loading: () =>
+            ref.read(loadingProvider.notifier).update((state) => true),
+      );
+    });
     return SafeArea(
       child: Scaffold(
         body: Stack(
@@ -33,13 +65,12 @@ class WelcomeScreen extends StatelessWidget {
                     alignment: Alignment.topRight,
                     child: SkipButton(),
                   ),
-
                   _buildWelcomeText(),
                   _buildTextDivider(),
                   SizedBox(
                     height: 18.h,
                   ),
-                  _buildSocialLoginButtons(),
+                  const SocialButtonRow(),
                   SizedBox(
                     height: 24.h,
                   ),
@@ -47,10 +78,21 @@ class WelcomeScreen extends StatelessWidget {
                   SizedBox(
                     height: 24.h,
                   ),
-                  _buildBottomText(),
+                  _buildBottomText(context),
                 ],
               ),
             ),
+            if (ref.watch(loadingProvider))
+              Positioned.fill(
+                  child: Container(
+                color: Colors.black.withOpacity(0.4),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: AppColor.primaryColor,
+                    strokeWidth: 5.0,
+                  ),
+                ),
+              ))
           ],
         ),
       ),
@@ -99,29 +141,6 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSocialLoginButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Flexible(
-            flex: 2,
-            child: SocialButton(
-              title: "FACEBOOK",
-              icon: 'assets/images/facebook_icon.svg',
-              onPress: () {},
-            )),
-        const Spacer(),
-        Flexible(
-            flex: 2,
-            child: SocialButton(
-              title: "GOOGLE",
-              icon: 'assets/images/google_icon.svg',
-              onPress: () {},
-            )),
-      ],
-    );
-  }
-
   Widget _buildEmailPhoneLoginButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
@@ -135,8 +154,8 @@ class WelcomeScreen extends StatelessWidget {
           padding: EdgeInsets.symmetric(vertical: 18.h),
         ),
         onPressed: () {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (context) => SignUpScreen(),
+          Navigator.of(context).pushReplacement(MaterialPageRoute(
+            builder: (context) => const SignUpScreen(),
           ));
         },
         child: Text(
@@ -150,7 +169,7 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomText() {
+  Widget _buildBottomText(BuildContext context) {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Row(
@@ -167,6 +186,11 @@ class WelcomeScreen extends StatelessWidget {
             width: 6.w,
           ),
           InkWell(
+            onTap: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => LoginScreen(),
+              ));
+            },
             child: Text(
               "Sign In",
               style: TextStyle(

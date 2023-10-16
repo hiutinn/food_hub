@@ -5,12 +5,14 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:food_hub/firebase_options.dart';
 import 'package:food_hub/screens/splash_screen.dart';
 
+final loadingProvider = StateProvider((ref) => false);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(ProviderScope(child: const MyApp()));
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -20,11 +22,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
-      designSize: const Size(
-          375, 812),
+      designSize: const Size(375, 812),
       minTextAdapt: true,
       splitScreenMode: true,
-      builder: (context, child) =>  MaterialApp(
+      builder: (context, child) => MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Food Hub',
         theme: ThemeData(

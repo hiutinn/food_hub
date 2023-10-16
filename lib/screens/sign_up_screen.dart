@@ -3,51 +3,68 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:food_hub/constants/color.dart';
-import 'package:food_hub/network/firebase_auth_service.dart';
+import 'package:food_hub/main.dart';
+import 'package:food_hub/providers/auth/auth_provider.dart';
+import 'package:food_hub/screens/email_verify_screen.dart';
 import 'package:food_hub/screens/log_in_screen.dart';
+import 'package:food_hub/screens/phone_registration_screen.dart';
 import 'package:food_hub/screens/shared/auth_form_input_field.dart';
 import 'package:food_hub/screens/shared/orange_button.dart';
-import 'package:food_hub/screens/shared/social_button.dart';
 import 'package:food_hub/screens/shared/text_divider.dart';
+import 'package:reactive_forms/reactive_forms.dart';
 
-import 'home_screen.dart';
+import 'shared/social_button_row.dart';
 
-final fullNameProvider = StateProvider((ref) => TextEditingController());
-final emailProvider = StateProvider((ref) => TextEditingController());
-final passwordProvider = StateProvider((ref) => TextEditingController());
-final fullNameErrorProvider = StateProvider<String?>((ref) => null);
-final emailErrorProvider = StateProvider<String?>((ref) => null);
-final passwordErrorProvider = StateProvider<String?>((ref) => null);
-
-class SignUpScreen extends ConsumerWidget {
+class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
 
+  @override
+  ConsumerState<SignUpScreen> createState() => _SignUpScreenState();
+}
+
+class _SignUpScreenState extends ConsumerState<SignUpScreen> {
+  final form = FormGroup({
+    'email': FormControl<String>(
+        validators: [Validators.required, Validators.email]),
+    'password': FormControl<String>(validators: [Validators.required]),
+    'fullname': FormControl<String>(validators: [Validators.required]),
+  });
+
   Future<void> _signup(WidgetRef ref, BuildContext context) async {
-    final fullName = ref.read(fullNameProvider).text;
-    final email = ref.read(emailProvider).text;
-    final password = ref.read(passwordProvider).text;
-
-    if (fullName.isEmpty) {
-      ref
-          .read(fullNameErrorProvider.notifier)
-          .update((state) => state = "Đôn't đu dịt");
-      return;
-    }
-
+    form.controls.forEach((key, value) {
+      value.markAsTouched();
+    });
+    if (form.hasErrors) return;
+    ref.read(loadingProvider.notifier).update((state) => true);
     await ref
         .read(firebaseAuthServiceProvider)
-        .signUpWithEmailAndPassword(email, password)
+        .signUpWithEmailAndPassword(
+            email: form.control('email').value,
+            password: form.control('password').value)
         .then((value) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Sign up successfully")));
-      Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const HomeScreen(),), (
-          route) => false);
+      ref.read(loadingProvider.notifier).update((state) => false);
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => const EmailVerifyScreen(),
+      ));
     });
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final generalError = ref.watch(signupGeneralErrorProvider);
+    ref.listen(authNotifierProvider, (previous, next) {
+      next.maybeWhen(
+        orElse: () => null,
+        unauthenticated: (message) {
+          ref.read(loadingProvider.notifier).update((state) => false);
+          ref
+              .read(signupGeneralErrorProvider.notifier)
+              .update((state) => message);
+        },
+        loading: () =>
+            ref.read(loadingProvider.notifier).update((state) => true),
+      );
+    });
     return SafeArea(
       child: GestureDetector(
         onTap: () {
@@ -75,35 +92,67 @@ class SignUpScreen extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     mainAxisSize: MainAxisSize.max,
                     children: [
-                      SizedBox(height: MediaQuery.sizeOf(context).height * 0.12),
-                      Text(
-                        'Sign Up',
-                        style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 36.sp,
-                            fontWeight: FontWeight.w600),
+                      SizedBox(height: 60.h),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Sign Up',
+                            style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 36.sp,
+                                fontWeight: FontWeight.w600),
+                          ),
+                          InkWell(
+                            onTap: () {
+                              Navigator.of(context)
+                                  .push(MaterialPageRoute(
+                                builder: (context) =>
+                                    const PhoneRegistrationScreen(),
+                              ));
+                            },
+                            child: Text(
+                              "Use phone number",
+                              style: TextStyle(
+                                  color: AppColor.primaryColor,
+                                  fontSize: 16.sp,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: AppColor.primaryColor),
+                            ),
+                          ),
+                        ],
                       ),
                       SizedBox(
-                        height: 20.sp,
+                        height: 16.sp,
                       ),
                       _buildForm(ref),
                       SizedBox(
                         height: 16.h,
                       ),
+                      if (generalError != null)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: EdgeInsets.only(bottom: 16.0.h),
+                            child: Text(
+                              generalError,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ),
                       Align(
                         alignment: Alignment.center,
                         child: OrangeButton(
                           title: "SIGN UP",
                           onPress: () {
                             _signup(ref, context);
-                            // FirebaseAuthService.signUpWithEmailAndPassword(email, password);
                           },
                         ),
                       ),
                       SizedBox(
                         height: 20.h,
                       ),
-                      _buildLoginText(context),
+                      _buildLoginText(context, ref),
                       SizedBox(
                         height: 36.h,
                       ),
@@ -115,11 +164,22 @@ class SignUpScreen extends ConsumerWidget {
                       SizedBox(
                         height: 10.h,
                       ),
-                      _buildSocialLoginButtons()
+                      const SocialButtonRow()
                     ],
                   ),
                 ),
               ),
+              if (ref.watch(loadingProvider))
+                Positioned.fill(
+                    child: Container(
+                  color: Colors.black.withOpacity(0.4),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColor.primaryColor,
+                      strokeWidth: 5.0,
+                    ),
+                  ),
+                ))
             ],
           ),
         ),
@@ -127,38 +187,36 @@ class SignUpScreen extends ConsumerWidget {
     );
   }
 
-
-
   Widget _buildForm(WidgetRef ref) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AuthFormInputField(
-          label: "Full name",
-          placeHolder: "Your full name",
-          isPassword: false,
-          controller: ref.watch(fullNameProvider),
-          error: ref.watch(fullNameErrorProvider),
-        ),
-        AuthFormInputField(
-          label: "E-mail",
-          placeHolder: "Your email or phone",
-          isPassword: false,
-          controller: ref.watch(emailProvider),
-          error: ref.watch(emailErrorProvider),
-        ),
-        AuthFormInputField(
-          label: "Password",
-          placeHolder: "Your email or phone",
-          isPassword: true,
-          controller: ref.watch(passwordProvider),
-          error: ref.watch(passwordErrorProvider),
-        ),
-      ],
+    return ReactiveForm(
+      formGroup: form,
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AuthFormInputField(
+            label: "Full name",
+            placeHolder: "Your full name",
+            isPassword: false,
+            formControlName: 'fullname',
+          ),
+          AuthFormInputField(
+            label: "E-mail",
+            placeHolder: "Your email or phone",
+            isPassword: false,
+            formControlName: 'email',
+          ),
+          AuthFormInputField(
+            label: "Password",
+            placeHolder: "Your email or phone",
+            isPassword: true,
+            formControlName: 'password',
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildLoginText(BuildContext context) {
+  Widget _buildLoginText(BuildContext context, WidgetRef ref) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -174,8 +232,8 @@ class SignUpScreen extends ConsumerWidget {
         ),
         InkWell(
           onTap: () {
-            Navigator.of(context).push(MaterialPageRoute(
-              builder: (context) => LoginScreen(),
+            Navigator.of(context).pushReplacement(MaterialPageRoute(
+              builder: (context) => const LoginScreen(),
             ));
           },
           child: Text(
@@ -186,29 +244,6 @@ class SignUpScreen extends ConsumerWidget {
                 fontWeight: FontWeight.w400),
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildSocialLoginButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Flexible(
-            flex: 2,
-            child: SocialButton(
-              title: "FACEBOOK",
-              icon: 'assets/images/facebook_icon.svg',
-              onPress: () {},
-            )),
-        const Spacer(),
-        Flexible(
-            flex: 2,
-            child: SocialButton(
-              title: "GOOGLE",
-              icon: 'assets/images/google_icon.svg',
-              onPress: () {},
-            )),
       ],
     );
   }

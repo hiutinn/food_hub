@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:food_hub/constants/color.dart';
-import 'package:food_hub/screens/sign_up_screen.dart';
+import 'package:reactive_forms/reactive_forms.dart';
 
 final hidePasswordProvider = StateProvider<bool>((ref) => true);
 
 class AuthFormInputField extends ConsumerWidget {
-  const AuthFormInputField({
-    super.key,
-    required this.label,
-    required this.placeHolder,
-    required this.isPassword,
-    required this.controller,
-    required this.error
-  });
+  const AuthFormInputField(
+      {super.key,
+      required this.label,
+      required this.placeHolder,
+      required this.isPassword,
+      required this.formControlName,
+      });
 
   final String label;
   final String placeHolder;
   final bool isPassword;
-  final TextEditingController controller;
-  final String? error;
+  final String formControlName;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hidePw = ref.watch(hidePasswordProvider);
@@ -39,12 +39,14 @@ class AuthFormInputField extends ConsumerWidget {
           SizedBox(
             height: 8.h,
           ),
-          TextField(
-            controller: controller,
+          ReactiveTextField(
+            formControlName: formControlName,
+            validationMessages: {
+              'email': (error) => 'The email value must be a valid email',
+              'required': (error) => 'The $label must not be empty'
+            },
             onChanged: (value) {
-              ref.invalidate(fullNameErrorProvider);
-              ref.invalidate(emailErrorProvider);
-              ref.invalidate(passwordErrorProvider);
+
             },
             style: TextStyle(
                 color: Colors.black,
@@ -54,7 +56,6 @@ class AuthFormInputField extends ConsumerWidget {
             enableSuggestions: !isPassword,
             autocorrect: !isPassword,
             decoration: InputDecoration(
-                errorText: error,
                 focusedBorder: OutlineInputBorder(
                     borderSide: const BorderSide(
                         color: AppColor.primaryColor, width: 1),
@@ -68,7 +69,9 @@ class AuthFormInputField extends ConsumerWidget {
                     EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.w),
                 suffixIcon: isPassword
                     ? IconButton(
-                        icon: const Icon(Icons.ac_unit_sharp),
+                        icon: hidePw
+                            ? SvgPicture.asset('assets/icons/eye_open.svg')
+                            : SvgPicture.asset('assets/icons/eye-closed.svg'),
                         onPressed: () {
                           ref
                               .read(hidePasswordProvider.notifier)
@@ -76,9 +79,6 @@ class AuthFormInputField extends ConsumerWidget {
                         },
                       )
                     : null),
-            onEditingComplete: () => ref
-                .read(hidePasswordProvider.notifier)
-                .update((state) => state = true),
           ),
         ],
       ),

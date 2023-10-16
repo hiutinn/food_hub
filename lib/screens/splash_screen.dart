@@ -1,31 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:food_hub/constants/color.dart';
+import 'package:food_hub/providers/auth/auth_provider.dart';
 import 'package:food_hub/screens/home_screen.dart';
 import 'package:food_hub/screens/sign_up_screen.dart';
 import 'package:food_hub/screens/welcome_screen.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(
-      const Duration(seconds: 2),
-      () => Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (context) => const WelcomeScreen(),
-      ),)
-    );
-  }
-
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   Widget build(BuildContext context) {
+    ref.listen(authStateProvider, (previous, next) {
+      Future.delayed(
+          const Duration(seconds: 2),
+              () => next.whenData((value) => value != null
+              ? Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (context) => HomeScreen(),
+              ),
+                  (route) => false)
+              : Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (context) => WelcomeScreen(),
+              ),
+                  (route) => false)));
+    });
     return Scaffold(
       backgroundColor: AppColor.primaryColor,
       body: Center(
